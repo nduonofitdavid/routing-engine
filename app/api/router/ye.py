@@ -1,0 +1,44 @@
+import uuid
+from fastapi import APIRouter, Depends, Query
+from sqlmodel import select
+from app.api.deps import SessionDep, get_current_user
+from app.models import Stops, City, Country, StopsOut
+
+router = APIRouter(prefix='/ye', tags=["ye"])
+
+@router.get("/stops", dependencies=[Depends(get_current_user),], response_model=list[StopsOut])
+def get_stops(session: SessionDep, stop_id: uuid.UUID | None=None, country: uuid.UUID|None=None, city: uuid.UUID|None=None, offset: int=0, limit: int = Query(default=100, le=100)) -> list[Stops]:
+  """Get the stops in the database"""
+  query = select(Stops)
+  if stop_id:
+    query = query.where(Stops.id == stop_id)
+  if country:
+    query = query.where(Stops.country == country)
+  if city:
+    query = query.where(Stops.city == city)
+  stops = session.exec(query.offset(offset).limit(limit)).all()
+  return stops  
+
+@router.get("/city", dependencies=[Depends(get_current_user)])
+def get_city(session: SessionDep, name: str|None=None,  city_id: uuid.UUID | None=None, country_id: uuid.UUID | None=None, offset: int=0, limit: int =Query(default=100, le=100)):
+  """Get the cities in the database"""
+  query = select(City)
+  if city_id:
+    query = query.where(City.id == city_id)
+  if country_id:
+    query = query.where(City.country == country_id)
+  if name:
+    query = query.where(City.name.ilike(name))
+  results = session.exec(query.offset(offset).limit(limit)).all()
+  return results
+
+@router.get("/country", dependencies=[Depends(get_current_user)])
+def get_country(session: SessionDep, country_id: uuid.UUID | None=None, name: str | None=None, offset: int=0, limit: int=Query(default=100, le=100)):
+  """Get the countries in the database"""
+  query = select(Country)
+  if country_id:
+    query = query.where(Country.id == country_id)
+  if name:
+    query = query.where(Country.name.ilike(name))
+  results = session.exec(query.offset(offset).limit(limit)).all()
+  return results
