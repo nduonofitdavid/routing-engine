@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 from htmlmin import minify
 
@@ -11,7 +12,7 @@ def format_document(dir: str):
       with open(entry.path) as file:
         html = file.read()
       one_line = minify(html, remove_comments=True, reduce_empty_attributes=True, remove_optional_attribute_quotes=True, keep_pre=False)
-      one_line = one_line.replace("\r", "").replace("\n", "")
+      one_line = re.sub(r"\s+", " ", one_line)
       with open(entry.path, 'w') as file:
         file.write(one_line)
     else:
