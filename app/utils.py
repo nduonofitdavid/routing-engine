@@ -39,6 +39,7 @@ def send_email(*, email_to: str, subject: str="", html_content: str="") -> None:
     smtp_options["user"] = settings.SMTP_USER
   if settings.SMTP_PASSWORD:
     smtp_options["password"] = settings.SMTP_PASSWORD
+    
   response = message.send(to=email_to, smtp=smtp_options)
   logger.info(f"send email result: {response}")
 

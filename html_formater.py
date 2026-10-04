@@ -1,0 +1,21 @@
+import os
+import sys
+from htmlmin import minify
+
+directory = sys.argv[1]
+
+def format_document(dir: str):
+  """Format html documents into a single line"""
+  for entry in os.scandir(dir):
+    if entry.is_file():
+      with open(entry.path) as file:
+        html = file.read()
+      one_line = minify(html, remove_comments=True, reduce_empty_attributes=True, remove_optional_attribute_quotes=True, keep_pre=False)
+      one_line = one_line.replace("\r", "").replace("\n", "")
+      with open(entry.path, 'w') as file:
+        file.write(one_line)
+    else:
+      format_document(entry.path)
+
+if __name__ == "__main__":
+  format_document(directory)

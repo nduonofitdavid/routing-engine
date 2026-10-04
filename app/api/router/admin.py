@@ -1,10 +1,11 @@
 import logging
 import uuid
+from datetime import datetime
 from fastapi import APIRouter, HTTPException, status, Query
 from sqlmodel import select, or_
 from sqlalchemy.exc import IntegrityError
 from app.api.deps import SessionDep, AdminDep, Depends, get_current_superuser
-from app.models import Country, City, StopsIn, Stops, get_datetime_utc, Records, AdminAction, Route, RouteIn, TransportMode, CityBase
+from app.models import Country, City, StopsIn, Stops, get_datetime_utc, Records, AdminAction, Route, RouteIn, TransportMode, CityBase, TripStore
 from app.api.lib.sage_engine import refresh_sage_graph, SG, loader
 
 router = APIRouter(prefix='/admin', tags=['admin', 'admin_user'])
@@ -81,7 +82,10 @@ def add_route(session: SessionDep, admin_user: AdminDep, payload: RouteIn):
     session.refresh(route)
   except Exception as e:
     session.rollback()
-    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="This route already exists!")
+    logging.exception("Failed to add route.")
+    if isinstance(e, IntegrityError):
+      raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="A conflict occured while adding this route")
+    raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Sorry, an unexpected error occured")    
   
   refresh_sage_graph(session=session, loader=loader, graph=SG)
   return route
@@ -149,9 +153,40 @@ def update_stop(session: SessionDep, stop_id: uuid.UUID, payload: StopsIn, admin
   return stop
 
 @router.get("/trips", dependencies=[Depends(get_current_superuser)], status_code=status.HTTP_200_OK)
-def get_trips_admin(session: SessionDep, trip_id: uuid.UUID | None=None, user_id: uuid.UUID|None=None, price: float|None=None, distance: float|None=None, ):
+def get_trips_admin(session: SessionDep, trip_id: uuid.UUID | None=None, user_id: uuid.UUID|None=None, price: float|None=None, distance: float|None=None, country: uuid.UUID | None=None, city: uuid.UUID | None=None, offset: int=0, limit: int=Query(default=100, le=100)):
   """Get trips for an admin user"""
-  ...
+  query = select(TripStore)
+  if trip_id:
+    query = query.where(TripStore.id == trip_id)
+  if user_id:
+    query = query.where(TripStore.user_id == user_id)
+  if price:
+    query = query.where(TripStore.price == price)
+  if distance:
+    query = query.where(TripStore.distance == distance)
+  if country:
+    query = query.where(TripStore.country == country)
+  if city:
+    query = query.where(TripStore.city == city)
+  
+  trips = session.exec(query.offset(offset).limit(limit)).all()
+  return trips
+
+@router.get("/records", dependencies=[Depends(get_current_superuser)], status_code=status.HTTP_200_OK)
+def get_records(session: SessionDep, record_id: uuid.UUID | None=None, action: AdminAction | None=None, performed_by: uuid.UUID | None=None, performed_at: datetime | None=None, offset: int=0, limit: int=Query(default=100, le=100)):
+  """Get records"""
+  query = select(Records)
+  if record_id:
+    query = query.where(Records.id == record_id)
+  if action:
+    query = query.where(Records.action == action)
+  if performed_by:
+    query = query.where(Records.performed_by == performed_by)
+  if performed_at:
+    query = query.where(Records.performed_at == performed_at)
+  
+  records = session.exec(query.offset(offset).limit(limit)).all()
+  return records
 
 @router.post("/country/add/{name}", status_code=status.HTTP_201_CREATED)
 def add_country(session: SessionDep, admin_user: AdminDep, name: str):

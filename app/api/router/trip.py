@@ -21,7 +21,6 @@ def get_directions(session: SessionDep, start_id: uuid.UUID, end_id: uuid.UUID, 
     raise HTTPException(detail="The start or end positions are not valid!", status_code=status.HTTP_400_BAD_REQUEST)
 
   payload = TripIn(start_latitude=start_stop.latitude, start_longitude=start_stop.longitude, stop_latitude=end_stop.latitude, stop_longitude=end_stop.longitude)
-  del start_stop, end_stop
 
   start_Ksnap, stop_Ksnap = find_nearest(payload)
   path = SG.dijkstra_or_astar(start=start_Ksnap[0], destination=stop_Ksnap[0], weight=optimize_by)
@@ -55,6 +54,8 @@ def get_directions(session: SessionDep, start_id: uuid.UUID, end_id: uuid.UUID, 
     distance=total_distance,
     price=total_price, 
     time=total_time,
+    city=start_stop.city,
+    country=start_stop.country,
     start_latitude=payload.start_latitude, 
     start_longitude=payload.start_longitude, 
     stop_latitude=payload.stop_latitude,
