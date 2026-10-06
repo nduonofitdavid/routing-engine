@@ -2,27 +2,31 @@ from collections import defaultdict
 import heapq
 from typing import Callable
 import uuid
+
 from sqlmodel import select, Session
 from sqlalchemy.orm import selectinload
-from app.models import Stops, Route, OptimizerWeight, TripIn, Country, City, TransportMode, CachedRoute
+
+from app.models import Stops, Route, OptimizerWeight, TripIn, Country, City, CachedRoute, CachedStop
 from app.api.lib.sage_lib import haversine
+from app.api.lib.osm_engine import snap_and_traverse
 from app.core.db import engine
 
 class Loader:
   """Load the knowledge tree from the database for traversal"""
   def __init__(self):
-    self.stop_cache: dict[uuid.UUID, Stops] = {}
+    self.stop_cache: dict[uuid.UUID, CachedStop] = {}
     self._route_cache = defaultdict(list)
     self._edge_lookup: dict[tuple[uuid.UUID, uuid.UUID], CachedRoute] = {}
     self._country_hash: set = set()
     self._city_hash: set = set()
+    self._route_geometry_cache: dict[tuple[uuid.UUID, uuid.UUID], tuple[list[tuple[float, float]], float]] = {}
 
   def load_stops(self, session: Session, use_cache: bool=True):
     if use_cache and self.stop_cache:
       return self.stop_cache
     stops = session.exec(select(Stops)).all()
     for stop in stops:
-      self.stop_cache[stop.id] = stop
+      self.stop_cache[stop.id] = CachedStop(id=stop.id, name=stop.name, latitude=stop.latitude, longitude=stop.longitude, city=stop.city, country=stop.country)
     return self.stop_cache
 
   def load_countries(self, session: Session, use_cache: bool=True):
@@ -57,16 +61,37 @@ class Loader:
     return self._route_cache
     
   def get_route(self, nodes: tuple[uuid.UUID, uuid.UUID]):
+    """Get a route by the route id"""
     try:
       return self._edge_lookup[nodes]
     except KeyError:
       return None
 
+  def load_route_geometry(self, session: Session):
+    """Preloads the geometry for the knowledge graph and caches it in a dictionary"""
+    routes = session.exec(select(Route)).all()
+    for route in routes:
+      start = self.stop_cache[route.start]
+      end = self.stop_cache[route.end]
+      res = snap_and_traverse(start.get_coords(), end.get_coords())
+      if not res:
+        continue
+      path, dist = res
+      self._route_geometry_cache[(route.start, route.end)] = path, dist
+
+  def get_route_geometry(self, route_key: tuple[uuid.UUID, uuid.UUID]) -> tuple[list[tuple[float, float]], float] | None:
+    """Get a route geometry by the route key"""
+    if route_key in self._route_geometry_cache:
+      return self._route_geometry_cache[route_key]
+    return None
+
   def refresh(self, session: Session):
-    _ = self.load_stops(session=session, use_cache=False)
-    _ = self.load_routes(session=session, use_cache=False)
-    _ = self.load_citites(session=session, use_cache=False)
-    _ = self.load_countries(session=session, use_cache=False)
+    """Refresh the cached data"""
+    self.load_stops(session=session, use_cache=False)
+    self.load_routes(session=session, use_cache=False)
+    self.load_citites(session=session, use_cache=False)
+    self.load_countries(session=session, use_cache=False)
+    self.load_route_geometry(session=session)
 
 def init_loader(loader: Loader) -> None:
   """Fetch the initial data from the database upon server start-up"""
@@ -75,6 +100,7 @@ def init_loader(loader: Loader) -> None:
     loader.load_routes(session=session, use_cache=False)
     loader.load_citites(session=session, use_cache=False)
     loader.load_countries(session=session, use_cache=False)
+    loader.load_route_geometry(session=session)
 
 loader = Loader()
 init_loader(loader)

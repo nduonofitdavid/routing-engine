@@ -34,36 +34,29 @@ def bulk_haversine(coords: list[tuple[float, float]])-> float:
 def time_heuristic(first: tuple[float, float], second: tuple[float, float]):
   distance = haversine(first, second)
   distance_km = distance / 1000
-
   estimated_hours = distance_km / settings.OPTIMISTIC_SPEED
-
   estimated_minutes = estimated_hours * 60
   return estimated_minutes
     
 def distance_to_time(distance: float, avg_speed: float | None = None) -> float:
-    speed = avg_speed if avg_speed is not None else 45
-
-    distance_km = distance / 1000
-    hours = distance_km / speed
-
-    return hours * 60
+  speed = avg_speed if avg_speed is not None else 45
+  distance_km = distance / 1000
+  hours = distance_km / speed
+  return hours * 60
 
 def price_estimator(distance: float) -> int:
   """
   Estimate price based on the distance to be covered
   Does not reflect how real prices are modeled
   """
-  distance_copy = distance
-    
+  distance_copy = distance  
   hundreds_count = 1
     
   while distance_copy >= 100:
     distance_copy-=100
     hundreds_count+=1
-        
+  
   trip_price = settings.BASE_PRICE * hundreds_count
-    
   if trip_price < settings.STANDARD_PRICE:
     return settings.STANDARD_PRICE
-    
   return int(trip_price)

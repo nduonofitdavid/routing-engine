@@ -93,6 +93,18 @@ class Stops(SQLModel, table=True):
     ),
   )
 
+@dataclass(slots=True)
+class CachedStop:
+  id: uuid.UUID
+  name: str
+  latitude: float
+  longitude: float
+  city: uuid.UUID
+  country: uuid.UUID
+
+  def get_coords(self) -> tuple[float, float]:
+    return self.latitude, self.longitude
+
 class TransportModeRouteLink(SQLModel, table=True):
   transport_mode_id: uuid.UUID | None = Field(default=None, foreign_key="transportmode.id", primary_key=True)
   route_id: uuid.UUID | None = Field(default=None, foreign_key="route.id", primary_key=True)

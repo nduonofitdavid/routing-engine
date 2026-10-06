@@ -1,4 +1,5 @@
 import uuid
+
 from fastapi import APIRouter, HTTPException, status, Request
 from fastapi.responses import JSONResponse
 from sqlmodel import select
@@ -42,7 +43,7 @@ def get_directions(request: Request, session: SessionDep, start_id: uuid.UUID, e
     start_node = loader.stop_cache[start]
     stop_node = loader.stop_cache[stop]
 
-    res = snap_and_traverse(start_node.get_coords(), stop_node.get_coords())
+    res = loader.get_route_geometry((start, stop))
     if not res:
       osm_path = []
     else:
