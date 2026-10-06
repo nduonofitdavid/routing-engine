@@ -16,20 +16,21 @@ click==8.5.0
 comm==0.2.3
 debugpy==1.8.21
 decorator==5.3.1
+Deprecated==1.3.1
 detect-installer==0.2.1
 dkimpy==1.1.8
 dnspython==2.8.0
 email-validator==2.3.0
 emails==1.1.2
 executing==2.2.1
-fastapi==0.141.1
+fastapi[standard]
 fastapi-cli==0.0.32
 fastapi-cloud-cli==0.26.0
 fastar==0.12.0
 folium==0.20.0
 greenlet==3.5.3
 h11==0.16.0
--e git+ssh://git@github.com/nduonofitdavid/hh.git@c8e6309af0bfdc54492743a5d3c843e98ca866d7#egg=hhiker
+htmlmin==0.1.12
 httpcore==1.0.9
 httptools==0.8.0
 httpx==0.28.1
@@ -42,6 +43,7 @@ jedi==0.20.0
 Jinja2==3.1.6
 jupyter_client==8.9.1
 jupyter_core==5.9.1
+limits==5.8.0
 Mako==1.4.3
 markdown-it-py==4.2.0
 MarkupSafe==3.0.3
@@ -90,6 +92,7 @@ sentry-sdk==2.69.2
 shapely==2.1.2
 shellingham==1.5.4
 six==1.17.0
+slowapi==0.1.10
 SQLAlchemy==2.0.51
 sqlmodel==0.0.39
 stack-data==0.6.3
@@ -105,4 +108,5 @@ uvloop==0.22.1
 watchfiles==1.2.0
 wcwidth==0.8.2
 websockets==17.1
+wrapt==2.5.0
 xyzservices==2026.3.0

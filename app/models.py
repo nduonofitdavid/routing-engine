@@ -217,6 +217,16 @@ class UserStatsOut(SQLModel):
   total_spent: float
   average_time: float
 
+# places
+class Place(SQLModel, table=True):
+  id: uuid.UUID | None = Field(default_factory=uuid.uuid4, primary_key=True)
+  name: str = Field(max_length=128)
+  latitude: float
+  longitude: float
+  description: str
+  visited: int 
+
+# auth
 class Token(SQLModel):
   access_token: str
   token_type: str = "bearer"
