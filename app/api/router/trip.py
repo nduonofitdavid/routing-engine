@@ -99,7 +99,7 @@ def get_direction_default(request: Request, session: SessionDep, payload: TripIn
 
   return TripOut(route_count=1, route_blocks=[route_blocks], trip_id=trip_store.id)
 
-@router.post('/complete/{trip_id}')
+@router.post('/complete/{trip_id}', status_code=status.HTTP_200_OK)
 @limiter.limit("5/minute")
 def mark_complete(request: Request, session: SessionDep, trip_id: uuid.UUID, user: CurrentUser):
   """This will mark a trip as complete"""
@@ -120,4 +120,4 @@ def mark_complete(request: Request, session: SessionDep, trip_id: uuid.UUID, use
   
   session.add(user_stats)
   session.commit()
-  return JSONResponse(content={"message": "success"}, status_code=status.HTTP_204_NO_CONTENT)
+  return JSONResponse(content={"message": "success"}, status_code=status.HTTP_200_NO_CONTENT)

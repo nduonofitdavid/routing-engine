@@ -30,17 +30,19 @@ async def login_user(request: Request, session: SessionDep, form_data: Annotated
 @router.post("/login/test-token", response_model=UserPublic)
 @limiter.limit("5/minute")
 async def test_token(request: Request, current_user: CurrentUser) -> Any:
+  """Test the bearer token"""
   return current_user
 
 @router.post("/password-recovery/{email}")
 @limiter.limit("5/minute")
 async def recover_password(request: Request, session: SessionDep, email: str) -> Message:
+  """Recover lost password"""
   user = crud.get_user_by_email(session=session, email=email)
 
   if user:
     password_reset_token = generate_password_reset_token(email=email)
     email_data = generate_reset_password_email(email_to=user.email, email=email, token=password_reset_token)
-    send_email(email_to=user.email, subject=email_data.html_content,)
+    send_email(email_to=user.email, subject=email_data.subject, html_content=email_data.html_content)
 
   return Message(message="If you registered with an email, a recovery link has been set")
 
@@ -65,6 +67,7 @@ def reset_password(request: Request, session: SessionDep, body: NewPassword) -> 
 @router.post("/password-recovery-html-content/{email}", dependencies=[Depends(get_current_superuser)], response_class=HTMLResponse)
 @limiter.limit("5/minute")
 def recover_password_html_content(request: Request, session: SessionDep, email: str) -> Any:
+  """Password recovery that returns html response directly instead of sending to mail"""
   user = crud.get_user_by_email(session=session, email=email)
   if not user:
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No user with the username provided exists in the system.")
