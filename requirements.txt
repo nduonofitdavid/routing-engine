@@ -23,7 +23,7 @@ dnspython==2.8.0
 email-validator==2.3.0
 emails==1.1.2
 executing==2.2.1
-fastapi[standard]
+fastapi==0.141.1
 fastapi-cli==0.0.32
 fastapi-cloud-cli==0.26.0
 fastar==0.12.0
