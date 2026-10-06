@@ -1,14 +1,17 @@
 from datetime import datetime
 import uuid
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Request
 from sqlmodel import select
+
 from app.api.deps import SessionDep, CurrentUser
 from app.models import TripStore, UserStats, UserStatsOut
+from app.core.rlimiter import limiter
 
 router = APIRouter(prefix="/user", tags=["users", "user"])
 
 @router.get("/trips/summary")
-def get_trips(session: SessionDep, user: CurrentUser, start_date: datetime|None = None, end_date: datetime|None=None, country: uuid.UUID|None=None, city: uuid.UUID|None=None, offset: int=0, limit: int = Query(default=100, le=100)):
+@limiter.limit("5/minute")
+def get_trips(request: Request, session: SessionDep, user: CurrentUser, start_date: datetime|None = None, end_date: datetime|None=None, country: uuid.UUID|None=None, city: uuid.UUID|None=None, offset: int=0, limit: int = Query(default=100, le=100)):
   """Get information about a users trips"""
   query = select(TripStore).where(TripStore.user_id == user.id)
   if start_date:
@@ -23,7 +26,8 @@ def get_trips(session: SessionDep, user: CurrentUser, start_date: datetime|None 
   return results
 
 @router.get("/stats", response_model=UserStatsOut)
-def get_user_stats(session: SessionDep, user: CurrentUser):
+@limiter.limit("5/minute")
+def get_user_stats(request: Request, session: SessionDep, user: CurrentUser):
   """Get stats about a user, like distance covered, most visited city, etc."""
   stats = session.exec(select(UserStats).where(UserStats.user_id == user.id)).first()
   if not stats:

@@ -1,18 +1,20 @@
 import uuid
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Request
 from fastapi.responses import JSONResponse
 from sqlmodel import select
-from app.api.deps import get_current_user, SessionDep, CurrentUser
+
+from app.api.deps import SessionDep, CurrentUser
 from app.models import TripIn, OptimizerWeight, TripOut, TripStore, TripStatus, UserStats, RouteBlock, RouteTripOut
 from app.api.lib.sage_engine import SG, find_nearest, loader
 from app.api.lib.sage_lib import distance_to_time, price_estimator
-
 from app.api.lib.osm_engine import snap_and_traverse
+from app.core.rlimiter import limiter
 
 router = APIRouter(prefix="/trip", tags=["trip"])
 
 @router.post('/', response_model=TripOut, status_code=status.HTTP_200_OK)
-def get_directions(session: SessionDep, start_id: uuid.UUID, end_id: uuid.UUID, optimize_by: OptimizerWeight, user: CurrentUser):
+@limiter.limit("5/minute")
+def get_directions(request: Request, session: SessionDep, start_id: uuid.UUID, end_id: uuid.UUID, optimize_by: OptimizerWeight, user: CurrentUser):
   """Returns directions using the knowledge graph"""
   try:
     start_stop = loader.stop_cache[start_id]
@@ -68,7 +70,8 @@ def get_directions(session: SessionDep, start_id: uuid.UUID, end_id: uuid.UUID, 
   return TripOut(route_count=stop_count, route_blocks=route_blocks, trip_id=trip_store.id)
 
 @router.post('/default', status_code=status.HTTP_200_OK)
-def get_direction_default(session: SessionDep, payload: TripIn, user: CurrentUser):
+@limiter.limit("5/minute")
+def get_direction_default(request: Request, session: SessionDep, payload: TripIn, user: CurrentUser):
   """Regular path traversal through the OSM graph, returning normal directions like that of a regular map"""
   start_coords = (payload.start_latitude, payload.start_longitude)
   stop_coords = (payload.stop_latitude, payload.stop_longitude)
@@ -96,7 +99,8 @@ def get_direction_default(session: SessionDep, payload: TripIn, user: CurrentUse
   return TripOut(route_count=1, route_blocks=[route_blocks], trip_id=trip_store.id)
 
 @router.post('/complete/{trip_id}')
-def mark_complete(session: SessionDep, trip_id: uuid.UUID, user: CurrentUser):
+@limiter.limit("5/minute")
+def mark_complete(request: Request, session: SessionDep, trip_id: uuid.UUID, user: CurrentUser):
   """This will mark a trip as complete"""
   trip = session.exec(select(TripStore).where(TripStore.id == trip_id, TripStore.user_id == user.id)).first()
   if not trip:

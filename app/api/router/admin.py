@@ -1,17 +1,19 @@
 import logging
 import uuid
 from datetime import datetime
-from fastapi import APIRouter, HTTPException, status, Query
+from fastapi import APIRouter, HTTPException, status, Query, Request
 from sqlmodel import select, or_
 from sqlalchemy.exc import IntegrityError
 from app.api.deps import SessionDep, AdminDep, Depends, get_current_superuser
 from app.models import Country, City, StopsIn, Stops, get_datetime_utc, Records, AdminAction, Route, RouteIn, TransportMode, CityBase, TripStore
 from app.api.lib.sage_engine import refresh_sage_graph, SG, loader
+from app.core.rlimiter import limiter
 
 router = APIRouter(prefix='/admin', tags=['admin', 'admin_user'])
 
 @router.post("/stops/add", status_code=status.HTTP_201_CREATED)
-def add_stop(session: SessionDep, admin_user: AdminDep, payload: StopsIn):
+@limiter.limit("10/minute")
+def add_stop(request: Request, session: SessionDep, admin_user: AdminDep, payload: StopsIn):
   """Create a Stop (Bus stop, car park, train station, etc.)"""
   if not loader.check_city(payload.city):
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="The city provided was not found")
@@ -40,7 +42,8 @@ def add_stop(session: SessionDep, admin_user: AdminDep, payload: StopsIn):
   return stop
 
 @router.get("/routes", dependencies=[Depends(get_current_superuser)])
-def get_routes(session: SessionDep, route_id: uuid.UUID|None = None, start_id: uuid.UUID|None=None, end_id: uuid.UUID|None=None, transport_modes: list[uuid.UUID]|None=None, offset: int=0, limit: int = Query(default=100, le=100)):
+@limiter.limit("10/minute")
+def get_routes(request: Request, session: SessionDep, route_id: uuid.UUID|None = None, start_id: uuid.UUID|None=None, end_id: uuid.UUID|None=None, transport_modes: list[uuid.UUID]|None=None, offset: int=0, limit: int = Query(default=100, le=100)):
   """Get the routes in the database"""
   query = select(Route)
   if route_id:
@@ -57,7 +60,8 @@ def get_routes(session: SessionDep, route_id: uuid.UUID|None = None, start_id: u
   return routes
 
 @router.post("/routes/add", status_code=status.HTTP_201_CREATED)
-def add_route(session: SessionDep, admin_user: AdminDep, payload: RouteIn):
+@limiter.limit("10/minute")
+def add_route(request: Request, session: SessionDep, admin_user: AdminDep, payload: RouteIn):
   """Create a route between two stops"""
   res = session.exec(select(Stops).where(or_(Stops.id == payload.start, Stops.id == payload.end))).all()
   if not len(res) >= 2:
@@ -91,7 +95,8 @@ def add_route(session: SessionDep, admin_user: AdminDep, payload: RouteIn):
   return route
 
 @router.put("/routes/update/{route_id}", status_code=status.HTTP_200_OK)
-def update_route(session: SessionDep, route_id: uuid.UUID, payload: RouteIn, admin_user: AdminDep):
+@limiter.limit("10/minute")
+def update_route(request: Request, session: SessionDep, route_id: uuid.UUID, payload: RouteIn, admin_user: AdminDep):
   """Update a route"""
   route = session.exec(select(Route).where(Route.id == route_id)).first()
   transport_modes = session.exec(select(TransportMode).where(TransportMode.id.in_(payload.transport_mode))).all()
@@ -121,7 +126,8 @@ def update_route(session: SessionDep, route_id: uuid.UUID, payload: RouteIn, adm
   return route
 
 @router.put("/stops/update/{stop_id}", status_code=status.HTTP_200_OK)
-def update_stop(session: SessionDep, stop_id: uuid.UUID, payload: StopsIn, admin_user: AdminDep):
+@limiter.limit("10/minute")
+def update_stop(request: Request, session: SessionDep, stop_id: uuid.UUID, payload: StopsIn, admin_user: AdminDep):
   """Update a stop"""
   if not loader.check_city(payload.city):
     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="The city provided is invalid!")
@@ -153,7 +159,8 @@ def update_stop(session: SessionDep, stop_id: uuid.UUID, payload: StopsIn, admin
   return stop
 
 @router.get("/trips", dependencies=[Depends(get_current_superuser)], status_code=status.HTTP_200_OK)
-def get_trips_admin(session: SessionDep, trip_id: uuid.UUID | None=None, user_id: uuid.UUID|None=None, price: float|None=None, distance: float|None=None, country: uuid.UUID | None=None, city: uuid.UUID | None=None, offset: int=0, limit: int=Query(default=100, le=100)):
+@limiter.limit("10/minute")
+def get_trips_admin(request: Request, session: SessionDep, trip_id: uuid.UUID | None=None, user_id: uuid.UUID|None=None, price: float|None=None, distance: float|None=None, country: uuid.UUID | None=None, city: uuid.UUID | None=None, offset: int=0, limit: int=Query(default=100, le=100)):
   """Get trips for an admin user"""
   query = select(TripStore)
   if trip_id:
@@ -173,7 +180,8 @@ def get_trips_admin(session: SessionDep, trip_id: uuid.UUID | None=None, user_id
   return trips
 
 @router.get("/records", dependencies=[Depends(get_current_superuser)], status_code=status.HTTP_200_OK)
-def get_records(session: SessionDep, record_id: uuid.UUID | None=None, action: AdminAction | None=None, performed_by: uuid.UUID | None=None, performed_at: datetime | None=None, offset: int=0, limit: int=Query(default=100, le=100)):
+@limiter.limit("10/minute")
+def get_records(request: Request, session: SessionDep, record_id: uuid.UUID | None=None, action: AdminAction | None=None, performed_by: uuid.UUID | None=None, performed_at: datetime | None=None, offset: int=0, limit: int=Query(default=100, le=100)):
   """Get records"""
   query = select(Records)
   if record_id:
@@ -189,7 +197,8 @@ def get_records(session: SessionDep, record_id: uuid.UUID | None=None, action: A
   return records
 
 @router.post("/country/add/{name}", status_code=status.HTTP_201_CREATED)
-def add_country(session: SessionDep, admin_user: AdminDep, name: str):
+@limiter.limit("10/minute")
+def add_country(request: Request, session: SessionDep, admin_user: AdminDep, name: str):
   """Add a country"""
   country = session.exec(select(Country).where(Country.name.ilike(name))).first()
   if country:
@@ -206,7 +215,8 @@ def add_country(session: SessionDep, admin_user: AdminDep, name: str):
   return country
 
 @router.post("/city/add/", status_code=status.HTTP_201_CREATED)
-def add_city(session: SessionDep, admin_user: AdminDep, payload: CityBase):
+@limiter.limit("10/minute")
+def add_city(request: Request, session: SessionDep, admin_user: AdminDep, payload: CityBase):
   """Add a city"""
   if not loader.check_country(payload.country):
     raise HTTPException(detail="The country provided is not valid!", status_code=status.HTTP_400_BAD_REQUEST)

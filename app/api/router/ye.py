@@ -1,13 +1,16 @@
 import uuid
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlmodel import select
+
 from app.api.deps import SessionDep, get_current_user
 from app.models import Stops, City, Country, StopsOut
+from app.core.rlimiter import limiter
 
 router = APIRouter(prefix='/ye', tags=["ye"])
 
 @router.get("/stops", dependencies=[Depends(get_current_user),], response_model=list[StopsOut])
-def get_stops(session: SessionDep, stop_id: uuid.UUID | None=None, country: uuid.UUID|None=None, city: uuid.UUID|None=None, offset: int=0, limit: int = Query(default=100, le=100)) -> list[Stops]:
+@limiter.limit("5/minute")
+def get_stops(request: Request, session: SessionDep, stop_id: uuid.UUID | None=None, country: uuid.UUID|None=None, city: uuid.UUID|None=None, offset: int=0, limit: int = Query(default=100, le=100)):
   """Get the stops in the database"""
   query = select(Stops)
   if stop_id:
@@ -20,7 +23,8 @@ def get_stops(session: SessionDep, stop_id: uuid.UUID | None=None, country: uuid
   return stops  
 
 @router.get("/city", dependencies=[Depends(get_current_user)])
-def get_city(session: SessionDep, name: str|None=None,  city_id: uuid.UUID | None=None, country_id: uuid.UUID | None=None, offset: int=0, limit: int =Query(default=100, le=100)):
+@limiter.limit("5/minute")
+def get_city(request: Request, session: SessionDep, name: str|None=None,  city_id: uuid.UUID | None=None, country_id: uuid.UUID | None=None, offset: int=0, limit: int =Query(default=100, le=100)):
   """Get the cities in the database"""
   query = select(City)
   if city_id:
@@ -33,7 +37,8 @@ def get_city(session: SessionDep, name: str|None=None,  city_id: uuid.UUID | Non
   return results
 
 @router.get("/country", dependencies=[Depends(get_current_user)])
-def get_country(session: SessionDep, country_id: uuid.UUID | None=None, name: str | None=None, offset: int=0, limit: int=Query(default=100, le=100)):
+@limiter.limit("5/minute")
+def get_country(request: Request, session: SessionDep, country_id: uuid.UUID | None=None, name: str | None=None, offset: int=0, limit: int=Query(default=100, le=100)):
   """Get the countries in the database"""
   query = select(Country)
   if country_id:
