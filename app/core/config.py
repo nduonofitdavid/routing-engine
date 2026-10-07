@@ -2,7 +2,7 @@ from pathlib import Path
 from pydantic import computed_field, PostgresDsn, field_validator, EmailStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Self
-
+import httpx
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 ENV_FILE = BASE_DIR / '.env'
@@ -25,6 +25,9 @@ class Settings(BaseSettings):
   BASE_PRICE: int
   ROUTABLE: str
   ROAD_PENALTY: str
+  SUPABASE_URL: str
+  SUPABASE_SERVICE_ROLE_KEY: str
+  BUCKET_STR: str
   OSM_DATA_PATH: str | None = None
   STOPS_PATH: str | None = None
   ROUTES_PATH: str | None = None
@@ -36,10 +39,31 @@ class Settings(BaseSettings):
     if self.OSM_DATA_PATH is None:
       self.OSM_DATA_PATH = str(data_dir / "abuja.osm.pbf")
     if self.STOPS_PATH is None:
-      self.STOPS_PATH = str(data_dir / "stops.json")
+      self.STOPS_PATH = str(data_dir / "data.json")
     if self.ROUTES_PATH is None:
       self.ROUTES_PATH = str(data_dir / "routes.json")
     return self
+
+  def _download_file(self, remote_path: str, local_path: str) -> None:
+    url = f"{self.SUPABASE_URL}/storage/v1/object/{self.BUCKET_STR}/{remote_path}"
+    headers = {"apikey": self.SUPABASE_SERVICE_ROLE_KEY,"Authorization": f"Bearer {self.SUPABASE_SERVICE_ROLE_KEY}"}
+    destination = Path(local_path)
+    temporary = destination.with_suffix(destination.suffix + ".tmp")
+    with httpx.Client() as client:
+      with client.stream("GET", url, headers=headers) as response:
+        response.raise_for_status()
+        with temporary.open("wb") as file:
+          for chunk in response.iter_bytes():
+            file.write(chunk)
+    temporary.replace(destination)
+
+  def ensure_data_files(self) -> None:
+    if not Path(self.OSM_DATA_PATH).exists():
+      self._download_file("abuja.osm.pbf", self.OSM_DATA_PATH)
+    if not Path(self.STOPS_PATH).exists():
+      self._download_file("data.json", self.STOPS_PATH)
+    if not Path(self.ROUTES_PATH).exists():
+      self._download_file("route.json", self.ROUTES_PATH)
 
   @field_validator("DATABASE_URL", mode="before")
   @classmethod
@@ -77,3 +101,4 @@ class Settings(BaseSettings):
   FIRST_SUPERUSER_PASSWORD: str
 
 settings = Settings() # type: ignore
+settings.ensure_data_files()

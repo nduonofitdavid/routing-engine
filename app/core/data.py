@@ -1,9 +1,11 @@
 import os
 from pathlib import Path
 import httpx
+from dotenv import load_dotenv
 
-from app.core.config import Settings
+from app.core.config import Settings, settings
 
+load_dotenv()
 SUPABASE_URL = os.getenv("SUPABASE_URL", None)
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", None)
 BUCKET_STR = os.getenv("BUCKET_STR", None)
@@ -31,6 +33,8 @@ async def ensure_data_files(settings: Settings):
   if not Path(settings.OSM_DATA_PATH).exists():
     await download_from_supabase(bucket=BUCKET_STR, remote_path="abuja.osm.pbf", local_path=settings.OSM_DATA_PATH,)
   if not Path(settings.STOPS_PATH).exists():
-    await download_from_supabase(bucket=BUCKET_STR, remote_path="stops.json", local_path=settings.STOPS_PATH,)
+    await download_from_supabase(bucket=BUCKET_STR, remote_path="data.json", local_path=settings.STOPS_PATH,)
   if not Path(settings.ROUTES_PATH).exists():
     await download_from_supabase(bucket=BUCKET_STR, remote_path="routes.json", local_path=settings.ROUTES_PATH,)
+
+_ = ensure_data_files(settings)
