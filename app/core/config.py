@@ -25,9 +25,21 @@ class Settings(BaseSettings):
   BASE_PRICE: int
   ROUTABLE: str
   ROAD_PENALTY: str
-  OSM_DATA_PATH: str
-  STOPS_PATH: str
-  ROUTES_PATH: str
+  OSM_DATA_PATH: str | None = None
+  STOPS_PATH: str | None = None
+  ROUTES_PATH: str | None = None
+
+  @model_validator(mode="after")
+  def set_data_paths(self) -> Self:
+    data_dir = Path("/tmp/hhiker")
+    data_dir.mkdir(parents=True, exist_ok=True)
+    if self.OSM_DATA_PATH is None:
+      self.OSM_DATA_PATH = str(data_dir / "abuja.osm.pbf")
+    if self.STOPS_PATH is None:
+      self.STOPS_PATH = str(data_dir / "stops.json")
+    if self.ROUTES_PATH is None:
+      self.ROUTES_PATH = str(data_dir / "routes.json")
+    return self
 
   @field_validator("DATABASE_URL", mode="before")
   @classmethod
