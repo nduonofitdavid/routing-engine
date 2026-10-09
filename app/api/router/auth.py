@@ -8,16 +8,28 @@ from fastapi.responses import HTMLResponse
 from app.core.config import settings
 from app.core import security
 from app.core.rlimiter import limiter
-from app.models import Token, UserPublic, Message, UserUpdate, NewPassword
+from app.models import Token, UserPublic, Message, UserUpdate, NewPassword, UserCreate
 from app.api.deps import SessionDep, CurrentUser, get_current_superuser
 from app import crud
 from app.utils import generate_password_reset_token, generate_reset_password_email, send_email, verify_password_reset_token
 
 router = APIRouter(prefix="/auth", tags=["auth", "authentication"])
 
+@router.post("/sign-up", response_model=UserPublic)
+@limiter.limit("5/minute")
+def create_user(request: Request, session: SessionDep, payload: UserCreate):
+  """Create account"""
+  user = crud.get_user_by_email(session=session, email=payload.email)
+  if user:
+    raise HTTPException(detail="An account already exists with this email!", status_code=status.HTTP_400_BAD_REQUEST)
+  user_n = UserCreate.model_validate(payload)
+  user = crud.create_user(session=session, user_create=user_n)
+  return user
+
 @router.post('/login/access-token')
 @limiter.limit("5/minute")
-async def login_user(request: Request, session: SessionDep, form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> Token:
+def login_user(request: Request, session: SessionDep, form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> Token:
+  """Login and receive access token"""
   user = crud.authenticate(session=session, email=form_data.username, password=form_data.password)
   if not user:
     raise HTTPException(status_code=400, detail="Incorrect email or password")
@@ -29,13 +41,13 @@ async def login_user(request: Request, session: SessionDep, form_data: Annotated
 
 @router.post("/login/test-token", response_model=UserPublic)
 @limiter.limit("5/minute")
-async def test_token(request: Request, current_user: CurrentUser) -> Any:
+def test_token(request: Request, current_user: CurrentUser) -> Any:
   """Test the bearer token"""
   return current_user
 
 @router.post("/password-recovery/{email}")
 @limiter.limit("5/minute")
-async def recover_password(request: Request, session: SessionDep, email: str) -> Message:
+def recover_password(request: Request, session: SessionDep, email: str) -> Message:
   """Recover lost password"""
   user = crud.get_user_by_email(session=session, email=email)
 

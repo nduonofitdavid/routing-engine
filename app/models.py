@@ -224,6 +224,11 @@ class UserStatsOut(SQLModel):
   average_time: float
 
 # places
+class PlaceType(SQLModel, table=True):
+  id: uuid.UUID | None = Field(default_factory=uuid.uuid4, primary_key=True)
+  name: str = Field(max_length=50, index=True)
+  description: str = Field(min_length=25, max_length=128)
+
 class PlaceIn(SQLModel):
   name: str = Field(max_length=128)
   latitude: float
