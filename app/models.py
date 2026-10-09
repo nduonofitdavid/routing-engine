@@ -31,9 +31,14 @@ class UserUpdate(SQLModel):
   full_name: str | None = Field(default=None, max_length=255)
   password: str | None = Field(default=None, min_length=8, max_length=128)
 
+class PlacesUserVisitedLink(SQLModel, table=True):
+  places_id: uuid.UUID | None = Field(default=None, foreign_key="place.id", primary_key=True)
+  user_id: uuid.UUID | None = Field(default=None, foreign_key="user.id", primary_key=True)
+
 class User(UserBase, table=True):
   id: uuid.UUID | None = Field(default_factory=uuid.uuid4, primary_key=True)
   hashed_password: str
+  places_visisted: list["Place"] = Relationship(back_populates="visited_users", link_model=PlacesUserVisitedLink)
   created_at: datetime | None = Field(default_factory=get_datetime_utc, sa_type=DateTime(timezone=True)) # type: ignore
 
 class UserPublic(UserBase):
@@ -49,7 +54,7 @@ class Message(SQLModel):
 
 class Country(SQLModel, table=True):
   id: uuid.UUID | None = Field(default_factory=uuid.uuid4, primary_key=True)
-  name: str = Field(max_length=128, unique=True)
+  name: str = Field(max_length=128, unique=True, index=True)
 
 class CityBase(SQLModel):
   name: str
@@ -57,7 +62,8 @@ class CityBase(SQLModel):
 
 class City(CityBase, table=True):
   id: uuid.UUID | None = Field(default_factory=uuid.uuid4, primary_key=True)
-  country: uuid.UUID = Field(foreign_key="country.id")
+  name: str = Field(max_length=128, unique=True, index=True)
+  country: uuid.UUID = Field(foreign_key="country.id", index=True)
 
 class StopsIn(SQLModel):
   name: str = Field(max_length=128)
@@ -218,13 +224,31 @@ class UserStatsOut(SQLModel):
   average_time: float
 
 # places
-class Place(SQLModel, table=True):
-  id: uuid.UUID | None = Field(default_factory=uuid.uuid4, primary_key=True)
+class PlaceIn(SQLModel):
   name: str = Field(max_length=128)
   latitude: float
   longitude: float
-  description: str
-  visited: int 
+  is_active: bool
+  description: str = Field(min_length=50, max_length=256)
+  city: uuid.UUID
+  country: uuid.UUID
+
+class Place(PlaceIn, table=True):
+  id: uuid.UUID | None = Field(default_factory=uuid.uuid4, primary_key=True)
+  city: uuid.UUID = Field(foreign_key="city.id", index=True)
+  country: uuid.UUID = Field(foreign_key="country.id", index=True)
+  visited_users: list[User] = Relationship(back_populates="places_visited", link_model=PlacesUserVisitedLink)
+
+  __table_args__ = (
+    UniqueConstraint(
+      "name",
+      "latitude",
+      "longitude",
+      "city",
+      "country",
+      name="Unique place constraint"
+    ),
+  )
 
 # auth
 class Token(SQLModel):
