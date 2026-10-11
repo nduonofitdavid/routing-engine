@@ -8,7 +8,7 @@ from app.core.rlimiter import limiter
 
 router = APIRouter(prefix='/ye', tags=["ye"])
 
-@router.get("/stops", dependencies=[Depends(get_current_user),], response_model=list[StopsOut])
+@router.get("/stops", dependencies=[Depends(get_current_user),])
 @limiter.limit("5/minute")
 def get_stops(request: Request, session: SessionDep, stop_id: uuid.UUID | None=None, country: uuid.UUID|None=None, city: uuid.UUID|None=None, offset: int=0, limit: int = Query(default=100, le=100)):
   """Get the stops in the database"""

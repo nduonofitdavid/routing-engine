@@ -38,7 +38,7 @@ class PlacesUserVisitedLink(SQLModel, table=True):
 class User(UserBase, table=True):
   id: uuid.UUID | None = Field(default_factory=uuid.uuid4, primary_key=True)
   hashed_password: str
-  places_visisted: list["Place"] = Relationship(back_populates="visited_users", link_model=PlacesUserVisitedLink)
+  places_visited: list["Place"] = Relationship(back_populates="visited_users", link_model=PlacesUserVisitedLink)
   created_at: datetime | None = Field(default_factory=get_datetime_utc, sa_type=DateTime(timezone=True)) # type: ignore
 
 class UserPublic(UserBase):
@@ -111,6 +111,11 @@ class CachedStop:
   def get_coords(self) -> tuple[float, float]:
     return self.latitude, self.longitude
 
+@dataclass
+class CoordTStopOut:
+  rb: "RouteBlock"
+  dist: float
+
 class TransportModeRouteLink(SQLModel, table=True):
   transport_mode_id: uuid.UUID | None = Field(default=None, foreign_key="transportmode.id", primary_key=True)
   route_id: uuid.UUID | None = Field(default=None, foreign_key="route.id", primary_key=True)
@@ -119,6 +124,10 @@ class TransportMode(SQLModel, table=True):
   id: uuid.UUID | None = Field(default_factory=uuid.uuid4, primary_key=True)
   name: str = Field(max_length=50, unique=True)
   routes: list["Route"] = Relationship(back_populates="transport_modes", link_model=TransportModeRouteLink)
+
+class Coordinates(SQLModel):
+  latitude: float
+  longitude: float
 
 class RouteIn(SQLModel):
   start: uuid.UUID
